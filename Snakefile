@@ -27,7 +27,7 @@ rule sim:
     from sim import sim
     import numpy as np
     bs = [0] + [b + float(wildcards.a)*i/(int(wildcards.n)-1) for i in range(int(wildcards.n))] #birth rate of cells in group with i cooperators
-    results = sim(T=5000, M=50, N0=2000, n=int(wildcards.n), bs=bs, d=0.03, r=2, s=1, m=float(wildcards.m), w=float(wildcards.m), globall=int(wildcards.globall))
+    results = sim(T=5000, M=100, N0=10000, n=int(wildcards.n), bs=bs, d=0.03, r=2, s=1, m=float(wildcards.m), w=float(wildcards.m), globall=int(wildcards.globall))
     np.save(output[0], results)
 
 rule sims:
