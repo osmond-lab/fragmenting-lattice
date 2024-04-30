@@ -26,3 +26,7 @@ source ~/.virtualenvs/$myenv/bin/activate
 
 # snakemake write to write-able location
 export XDG_CACHE_HOME=$SCRATCH
+
+# libraries for Snakefile
+#pip install snakemake-executor-plugin-slurm
+# note: i had to comment out four lines of this plugin to prevent mem requests, as niagara does not allow them

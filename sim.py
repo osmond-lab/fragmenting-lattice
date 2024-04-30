@@ -30,10 +30,9 @@ def non_trivial_partitions(n):
 
 # simulation
 
-def sim(T=5000, M=50, N0=2000, n=4, bs=[0,0.3,0.3,0.3,0.3], d=0.03, r=2, s=0, m=0, w=0, globall=1):
+def sim(modes=[(1,1)], T=1000, M=10, N0=100, bs=[0,1,1], d=0, r=2, s=0, m=0, w=0, local=False):
 
     # modes   
-    modes = non_trivial_partitions(n) #modes
     nmodes = len(modes) #number of modes
     max_sizes = [sum(mode) for mode in modes] #max sizes
  
@@ -66,9 +65,6 @@ def sim(T=5000, M=50, N0=2000, n=4, bs=[0,0.3,0.3,0.3,0.3], d=0.03, r=2, s=0, m=
     # -----------------------------------------------------------------------------|
     for t in range(T):
 
-        if t%100==0:
-            print(t, np.sum(group_size), np.unique(mode))
-   
         # cell division and group death 
         for i in range(M):
             for j in range(M):
@@ -142,7 +138,7 @@ def sim(T=5000, M=50, N0=2000, n=4, bs=[0,0.3,0.3,0.3,0.3], d=0.03, r=2, s=0, m=
                    for o,off in enumerate(offs):
                            
                        # global dispersal        
-                       if globall == 1:
+                       if local == False or local == "False":
                            ival = np.random.randint(M) 
                            jval = np.random.randint(M) 
     
@@ -167,22 +163,26 @@ def sim(T=5000, M=50, N0=2000, n=4, bs=[0,0.3,0.3,0.3,0.3], d=0.03, r=2, s=0, m=
 
                        if 0<=ival and ival<M and 0<=jval and jval<M: #if offspring in bounds 
 
-                           # compete for spot   
-                           win = False
+                           win = True
 
-                           # random competition
-                           if s == 0:
-                               if group_size[ival,jval] > 0:
-                                   if np.random.random() > 0.5: #50/50 chance of replacing resident
-                                      win=True
+                           # compete for spot
+                           if group_size[ival,jval] == 0:
+                               win = True #always in an empty spot
+                           
+                           elif group_size[ival,jval] < off:
+                               if np.random.random() < 1 - (1+s)/2: #lose to smaller resident with prob 1 - (1+s)/2 
+                                   win=False
 
-                           # size dependent competition
-                           else:                 
-                               if group_size[ival,jval] == off: 
-                                   if np.random.random() > 0.5: #50/50 chance of replacing when same size
-                                       win=True 
-                               elif group_size[ival,jval] < off:
-                                   win=True
+                           elif group_size[ival,jval] == off:
+                               if np.random.random() < 0.5: #50/50 chance of losing when same size as resident
+                                   win=False
+
+                           elif group_size[ival,jval] > off:
+                               if np.random.random() < (1+s)/2: #lose to larger resident with prob (1+s)/2 
+                                   win=False
+
+                           else:
+                               print(group_size[ival,jval], off)
 
                            if win:
                                group_size[ival,jval] = off
