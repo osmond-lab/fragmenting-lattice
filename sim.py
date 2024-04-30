@@ -30,15 +30,15 @@ def non_trivial_partitions(n):
 
 # simulation
 
-def sim(modes=[(1,1)], T=1000, M=10, N0=100, bs=[0,1,1], d=0, r=2, s=0, m=0, w=0, local=False):
+def sim(modes=[(1,1)], T=1000, M=10, N0=100, bs=[0,1], d=0, r=2, s=0, m=0, w=0, local=False):
 
     # modes   
     nmodes = len(modes) #number of modes
     max_sizes = [sum(mode) for mode in modes] #max sizes
  
     # birth rates
-    pbs = [1 - np.exp(-b) for b in bs] #probability a cooperator cell divides
-    pbs_cancer = [1 - np.exp(-r * b) for b in bs] #probability a cancer cell divides
+    pbs = [1 - np.exp(-b) for b in bs] #probability a cooperator cell divides for given number of cooperators
+    pbs_cancer = [1 - np.exp(-r * b) for b in bs] #probability a cancer cell divides for given number of cooperators
 
     # death rate
     pd = 1 - np.exp(-d) #probability a group dies
@@ -47,22 +47,17 @@ def sim(modes=[(1,1)], T=1000, M=10, N0=100, bs=[0,1,1], d=0, r=2, s=0, m=0, w=0
     group_size = np.zeros((M, M), int)  #number of cells at vertices
     mode = np.zeros((M, M), int) # fragmentation genotype for points on the lattice that are inhabited by cells
     num_cancer = np.zeros((M, M), int) #number of cancer cells
-    locations_of_parents = np.zeros((M,M), int) #temporary record of which vertices fragmenting
+    parents = np.zeros((M,M), int) #temporary record of which vertices fragmenting
 
-    # -----------------------------------------------------------------------------|
     # create N0 randomly scattered individuals on an M by M grid
-   
     ixs = np.random.choice(M**2, size=N0, replace=False) #N0 unique random numbers
     locations = np.array(list(product(range(M),range(M))))[ixs] #convert to unique vertices
-
     for i,j in locations:
         group_size[i,j] = 1 #start all individuals as single cells
         mode[i,j] = np.random.randint(1,nmodes+1) #choose mode at random (note we are saving 0 for empty vertex)
         num_cancer[i,j] = 0
     
-    # -----------------------------------------------------------------------------|
     # ITERATE
-    # -----------------------------------------------------------------------------|
     for t in range(T):
 
         # cell division and group death 
@@ -71,56 +66,56 @@ def sim(modes=[(1,1)], T=1000, M=10, N0=100, bs=[0,1,1], d=0, r=2, s=0, m=0, w=0
                 
                 gsize = group_size[i,j] #number of cells at this vertex
     
-                if gsize > 0:  # if there is an individual (/group) at that spot
+                if gsize > 0:  # if there is a group at that spot
     
                     # info
                     ncanc = num_cancer[i,j] #number of cancer cells
                     ncoop = gsize - ncanc #number of cooperator cells
-                    msize = max_sizes[mode[i,j]-1]
+                    msize = max_sizes[mode[i,j]-1] #max size
  
                     # births
                     coop_births = np.random.binomial(ncoop, pbs[ncoop])  #number of cooperator cells that want to divide
                     canc_births = np.random.binomial(ncanc, pbs_cancer[ncoop]) #number of cancer cells that want to divide
 
                     #mutations
-                    coop_muts = np.random.binomial(coop_births, m)
-                    canc_muts = np.random.binomial(canc_births, w)
-                    new_coop = coop_births - coop_muts + canc_muts
-                    new_canc = canc_births - canc_muts + coop_muts     
+                    coop_muts = np.random.binomial(coop_births, m) #number of new cooperators that switch to cancer cells
+                    canc_muts = np.random.binomial(canc_births, w) #number of new cancer cells that switch to cooperators
+                    new_coop = coop_births - coop_muts + canc_muts #number of new cooperators
+                    new_canc = canc_births - canc_muts + coop_muts #number of new cancer cells
 
                     # make sure we dont overshoot max size
-                    new_gsize = gsize + new_coop + new_canc
+                    new_gsize = gsize + new_coop + new_canc #size if all new cells added
                     if new_gsize > msize:  # if the max size is exceeded
-                        new_gsize = msize
-                        picks = np.random.choice(new_coop + new_canc, new_gsize - gsize) #else choose randomly among cells that want to divide until max size reached
-                        new_canc=0
+                        new_gsize = msize #reach max size
+                        picks = np.random.choice(new_coop + new_canc, new_gsize - gsize) #choose randomly among cells that want to divide until max size reached
+                        new_canc = 0 #initialize tally of new cancer cells to be added
                         for pick in picks:
-                            if pick >= new_coop: 
-                                new_canc += 1 
-                    group_size[i,j] = new_gsize
-                    num_cancer[i,j] += new_canc
+                            if pick >= new_coop: #if chosen index greater than or equal to number of cooperators
+                                new_canc += 1 #then add a new cancer cell
+                    group_size[i,j] = new_gsize #update group size
+                    num_cancer[i,j] += new_canc #add new cancer cells
             
                     # death
-                    if np.random.random() > (1-pd)*(1-(ncanc+new_canc)/new_gsize):
-                        group_size[i,j] = 0
+                    if np.random.random() < 1 - (1-pd)*(1-(ncanc+new_canc)/new_gsize): #if dont survive both forms of mortality
+                        group_size[i,j] = 0 #remove
                         mode[i,j] = 0
                         num_cancer[i,j] = 0
 
                     # fragmenters 
                     if group_size[i,j] == msize:
-                        locations_of_parents[i,j] = 1
+                        parents[i,j] = 1
    
-        # iterate through the grid and make groups fragment -----------------------|
+        # iterate through the grid and make groups fragment
         for i in range(M):
             for j in range(M):
     
                 # if there is a parent at that spot
-                if locations_of_parents[i,j] == 1:
+                if parents[i,j] == 1:
    
                    #info 
-                   mij = mode[i,j]
-                   msize = max_sizes[mij-1]
-                   ncanc = num_cancer[i,j] 
+                   mij = mode[i,j] #mode index
+                   msize = max_sizes[mij-1] #max size
+                   ncanc = num_cancer[i,j]  #number of cancer cells
                    offs = modes[mij-1] #offspring sizes
                    
                    #remove parent so that offspring don't compete with it
@@ -163,37 +158,31 @@ def sim(modes=[(1,1)], T=1000, M=10, N0=100, bs=[0,1,1], d=0, r=2, s=0, m=0, w=0
 
                        if 0<=ival and ival<M and 0<=jval and jval<M: #if offspring in bounds 
 
-                           win = True
-
                            # compete for spot
-                           if group_size[ival,jval] == 0:
-                               win = True #always in an empty spot
-                           
-                           elif group_size[ival,jval] < off:
-                               if np.random.random() < 1 - (1+s)/2: #lose to smaller resident with prob 1 - (1+s)/2 
-                                   win=False
-
-                           elif group_size[ival,jval] == off:
-                               if np.random.random() < 0.5: #50/50 chance of losing when same size as resident
-                                   win=False
-
-                           elif group_size[ival,jval] > off:
-                               if np.random.random() < (1+s)/2: #lose to larger resident with prob (1+s)/2 
-                                   win=False
-
-                           else:
-                               print(group_size[ival,jval], off)
-
+                           win = True
+                           if group_size[ival,jval] > 0:
+                               num = np.random.random()
+                               if group_size[ival,jval] < off:
+                                   if num < 1 - (1+s)/2: #lose to smaller resident with prob 1 - (1+s)/2 
+                                       win=False
+                               elif group_size[ival,jval] == off:
+                                   if num < 0.5: #50/50 chance of losing when same size as resident
+                                       win=False
+                               elif group_size[ival,jval] > off:
+                                   if num < (1+s)/2: #lose to larger resident with prob (1+s)/2 
+                                       win=False
+      
+                           #replace resident
                            if win:
                                group_size[ival,jval] = off
                                mode[ival,jval] = mij
                                num_cancer[ival,jval] = ncanc_in_offs[o]
 
                    # remove parent
-                   locations_of_parents[i,j] = 0
-
+                   parents[i,j] = 0
+     
+        # end simulation if extinct
         if np.sum(group_size) == 0:
-            break
+            break 
 
     return group_size, mode, num_cancer
-
